@@ -1,0 +1,409 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+
+  @@map("gender")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  TERMINATED
+
+  @@map("employee_status")
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@map("leave_request_status")
+}
+
+enum AttendanceMethod {
+  WEB
+  MOBILE
+  BIOMETRIC
+  MANUAL
+
+  @@map("attendance_method")
+}
+
+enum AttendanceLogStatus {
+  PRESENT
+  LATE
+  ABSENT
+  ON_LEAVE
+  CORRECTED
+
+  @@map("attendance_log_status")
+}
+
+enum AttendanceCorrectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("attendance_correction_status")
+}
+
+model Company {
+  id              BigInt      @id @default(autoincrement())
+  name            String
+  taxId           String      @unique @map("tax_id")
+  defaultCurrency String      @default("USD") @map("default_currency") @db.VarChar(3)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  branches        Branch[]
+  employees       Employee[]
+  setting         Setting?
+  leaveTypes      LeaveType[]
+  holidays        Holiday[]
+
+  @@map("companies")
+}
+
+model Branch {
+  id                  BigInt               @id @default(autoincrement())
+  companyId           BigInt               @map("company_id")
+  name                String
+  address             String?
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  departments         Department[]
+  employees           Employee[]
+  attendanceLocations AttendanceLocation[]
+
+  @@unique([companyId, name])
+  @@map("branches")
+}
+
+model Department {
+  id        BigInt       @id @default(autoincrement())
+  branchId  BigInt       @map("branch_id")
+  parentId  BigInt?      @map("parent_id")
+  name      String
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  branch    Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  parent    Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Department[] @relation("DepartmentHierarchy")
+  positions Position[]
+  employees Employee[]
+
+  @@unique([branchId, name])
+  @@map("departments")
+}
+
+model Position {
+  id           BigInt     @id @default(autoincrement())
+  departmentId BigInt     @map("department_id")
+  title        String
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@unique([departmentId, title])
+  @@map("positions")
+}
+
+model Employee {
+  id                    BigInt                 @id @default(autoincrement())
+  companyId             BigInt                 @map("company_id")
+  branchId              BigInt                 @map("branch_id")
+  departmentId          BigInt                 @map("department_id")
+  positionId            BigInt                 @map("position_id")
+  managerId             BigInt?                @map("manager_id")
+  employeeNo            String                 @unique @map("employee_no")
+  firstName             String                 @map("first_name")
+  lastName              String                 @map("last_name")
+  firstNameKh           String                 @map("first_name_kh")
+  lastNameKh            String                 @map("last_name_kh")
+  gender                Gender?
+  dob                   DateTime?              @db.Date
+  phone                 String?
+  email                 String?
+  hireDate              DateTime               @map("hire_date") @db.Date
+  terminationDate       DateTime?              @map("termination_date") @db.Date
+  terminationReason     String?                @map("termination_reason")
+  photoPath             String?                @map("photo_path")
+  status                EmployeeStatus         @default(ACTIVE)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch                Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department            Department             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  position              Position               @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  manager               Employee?              @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports         Employee[]             @relation("EmployeeManager")
+  user                  User?
+  leaveBalances         LeaveBalance[]
+  leaveRequests         LeaveRequest[]
+  attendanceLogs        AttendanceLog[]
+  attendanceCorrections AttendanceCorrection[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([departmentId])
+  @@map("employees")
+}
+
+model User {
+  id                 BigInt                 @id @default(autoincrement())
+  employeeId         BigInt?                @unique @map("employee_id")
+  email              String                 @unique
+  password           String
+  isActive           Boolean                @default(true) @map("is_active")
+  lastLoginAt        DateTime?              @map("last_login_at") @db.Timestamptz(6)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  employee           Employee?              @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  roleUsers          RoleUser[]
+  refreshTokens      RefreshToken[]
+  approvedLeaves     LeaveRequest[]         @relation("LeaveApprovedBy")
+  editedLogs         AttendanceLog[]        @relation("AttendanceEditedBy")
+  decidedCorrections AttendanceCorrection[] @relation("CorrectionDecidedBy")
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+model Role {
+  id              BigInt           @id @default(autoincrement())
+  name            String           @unique
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roleUsers       RoleUser[]
+  permissionRoles PermissionRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              BigInt           @id @default(autoincrement())
+  name            String           @unique
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  permissionRoles PermissionRole[]
+
+  @@map("permissions")
+}
+
+model RoleUser {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  roleId    BigInt   @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("role_users")
+}
+
+model PermissionRole {
+  id           BigInt     @id @default(autoincrement())
+  roleId       BigInt     @map("role_id")
+  permissionId BigInt     @map("permission_id")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("permission_roles")
+}
+
+model RefreshToken {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Setting {
+  id              BigInt   @id @default(autoincrement())
+  companyId       BigInt   @unique @map("company_id")
+  workWeek        String[] @default(["MON", "TUE", "WED", "THU", "FRI"]) @map("work_week")
+  workStartTime   DateTime @default(dbgenerated("'08:00:00'::time")) @map("work_start_time") @db.Time(0)
+  graceMinutes    Int      @default(15) @map("grace_minutes")
+  defaultCurrency String   @default("USD") @map("default_currency") @db.VarChar(3)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+model LeaveType {
+  id                 BigInt         @id @default(autoincrement())
+  companyId          BigInt         @map("company_id")
+  name               String
+  daysPerYear        Decimal        @map("days_per_year") @db.Decimal(5, 2)
+  isPaid             Boolean        @default(true) @map("is_paid")
+  carryOver          Boolean        @default(false) @map("carry_over")
+  requiresAttachment Boolean        @default(false) @map("requires_attachment")
+  maxDaysPerRequest  Decimal?       @map("max_days_per_request") @db.Decimal(5, 2)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company            Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leaveBalances      LeaveBalance[]
+  leaveRequests      LeaveRequest[]
+
+  @@unique([companyId, name])
+  @@map("leave_types")
+}
+
+model LeaveBalance {
+  id          BigInt    @id @default(autoincrement())
+  employeeId  BigInt    @map("employee_id")
+  leaveTypeId BigInt    @map("leave_type_id")
+  year        Int
+  entitled    Decimal   @default(0) @db.Decimal(15, 2)
+  used        Decimal   @default(0) @db.Decimal(15, 2)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  id             BigInt             @id @default(autoincrement())
+  employeeId     BigInt             @map("employee_id")
+  leaveTypeId    BigInt             @map("leave_type_id")
+  startDate      DateTime           @map("start_date") @db.Date
+  endDate        DateTime           @map("end_date") @db.Date
+  days           Decimal            @db.Decimal(5, 2)
+  startHalf      Boolean            @default(false) @map("start_half")
+  endHalf        Boolean            @default(false) @map("end_half")
+  reason         String?
+  attachmentPath String?            @map("attachment_path")
+  status         LeaveRequestStatus @default(PENDING)
+  approvedBy     BigInt?            @map("approved_by")
+  approvedAt     DateTime?          @map("approved_at") @db.Timestamptz(6)
+  cancelledAt    DateTime?          @map("cancelled_at") @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  employee       Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType      LeaveType          @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  approver       User?              @relation("LeaveApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, status])
+  @@map("leave_requests")
+}
+
+model Holiday {
+  id          BigInt   @id @default(autoincrement())
+  companyId   BigInt   @map("company_id")
+  holidayDate DateTime @map("holiday_date") @db.Date
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, holidayDate])
+  @@map("holidays")
+}
+
+model AttendanceLocation {
+  id        BigInt          @id @default(autoincrement())
+  branchId  BigInt          @map("branch_id")
+  name      String
+  latitude  Decimal         @db.Decimal(9, 6)
+  longitude Decimal         @db.Decimal(9, 6)
+  radiusM   Int             @map("radius_m")
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  branch    Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  logs      AttendanceLog[]
+
+  @@unique([branchId, name])
+  @@map("attendance_locations")
+}
+
+model AttendanceLog {
+  id             BigInt                 @id @default(autoincrement())
+  employeeId     BigInt                 @map("employee_id")
+  locationId     BigInt?                @map("location_id")
+  workDate       DateTime               @map("work_date") @db.Date
+  checkIn        DateTime?              @map("check_in") @db.Timestamptz(6)
+  checkOut       DateTime?              @map("check_out") @db.Timestamptz(6)
+  checkInLat     Decimal?               @map("check_in_lat") @db.Decimal(9, 6)
+  checkInLng     Decimal?               @map("check_in_lng") @db.Decimal(9, 6)
+  checkOutLat    Decimal?               @map("check_out_lat") @db.Decimal(9, 6)
+  checkOutLng    Decimal?               @map("check_out_lng") @db.Decimal(9, 6)
+  gpsAccuracyM   Decimal?               @map("gps_accuracy_m") @db.Decimal(8, 2)
+  isMockLocation Boolean                @default(false) @map("is_mock_location")
+  deviceId       String?                @map("device_id")
+  method         AttendanceMethod       @default(WEB)
+  reason         String?
+  editedBy       BigInt?                @map("edited_by")
+  status         AttendanceLogStatus    @default(PRESENT)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  employee       Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  location       AttendanceLocation?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  editor         User?                  @relation("AttendanceEditedBy", fields: [editedBy], references: [id], onDelete: SetNull)
+  corrections    AttendanceCorrection[]
+
+  @@unique([employeeId, workDate])
+  @@map("attendance_logs")
+}
+
+model AttendanceCorrection {
+  id                BigInt                     @id @default(autoincrement())
+  employeeId        BigInt                     @map("employee_id")
+  attendanceLogId   BigInt?                    @map("attendance_log_id")
+  workDate          DateTime                   @map("work_date") @db.Date
+  requestedCheckIn  DateTime?                  @map("requested_check_in") @db.Timestamptz(6)
+  requestedCheckOut DateTime?                  @map("requested_check_out") @db.Timestamptz(6)
+  reason            String
+  status            AttendanceCorrectionStatus @default(PENDING)
+  decidedBy         BigInt?                    @map("decided_by")
+  decidedAt         DateTime?                  @map("decided_at") @db.Timestamptz(6)
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  employee          Employee                   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  attendanceLog     AttendanceLog?             @relation(fields: [attendanceLogId], references: [id], onDelete: SetNull)
+  decider           User?                      @relation("CorrectionDecidedBy", fields: [decidedBy], references: [id], onDelete: SetNull)
+
+  @@map("attendance_corrections")
+}
+
+model Notification {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt    @map("user_id")
+  title     String
+  body      String
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
