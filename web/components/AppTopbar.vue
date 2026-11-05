@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppSelect from '~/components/app/AppSelect.vue'
 import NotificationListItem from '~/components/notifications/NotificationListItem.vue'
+import { usePopupPosition } from '~/composables/usePopupPosition'
 import type { Notification } from '~/types'
 
 defineProps<{
@@ -14,8 +15,14 @@ const notificationsApi = useNotifications()
 const colorMode = useColorMode()
 const notificationPopover = ref<HTMLElement | null>(null)
 const userMenuPopover = ref<HTMLElement | null>(null)
+const notificationTrigger = ref<HTMLElement | null>(null)
+const userMenuTrigger = ref<HTMLElement | null>(null)
+const notificationPanel = ref<HTMLElement | null>(null)
+const userMenuPanel = ref<HTMLElement | null>(null)
 const notificationsOpen = ref(false)
 const userMenuOpen = ref(false)
+const { style: notificationPanelStyle } = usePopupPosition(notificationTrigger, notificationPanel, notificationsOpen, { align: 'end' })
+const { style: userMenuPanelStyle } = usePopupPosition(userMenuTrigger, userMenuPanel, userMenuOpen, { align: 'end' })
 const notificationItems = ref<Notification[]>([])
 const unreadCount = ref(0)
 const notificationsLoading = ref(false)
@@ -52,8 +59,8 @@ function toggleNotifications() {
 function handlePopoverPointerDown(event: PointerEvent) {
   const target = event.target
   if (!(target instanceof Node)) return
-  if (!notificationPopover.value?.contains(target)) notificationsOpen.value = false
-  if (!userMenuPopover.value?.contains(target)) userMenuOpen.value = false
+  if (!notificationPopover.value?.contains(target) && !notificationPanel.value?.contains(target)) notificationsOpen.value = false
+  if (!userMenuPopover.value?.contains(target) && !userMenuPanel.value?.contains(target)) userMenuOpen.value = false
 }
 
 function handlePopoverKeydown(event: KeyboardEvent) {
@@ -160,6 +167,7 @@ async function logout() {
       <div ref="notificationPopover" class="relative">
         <button
           type="button"
+          ref="notificationTrigger"
           class="relative grid size-10 cursor-pointer list-none place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
           :aria-label="t('topbar.notifications')"
           :aria-expanded="notificationsOpen"
@@ -176,8 +184,9 @@ async function logout() {
             aria-hidden="true"
           >{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
         </button>
+        <Teleport to="body">
         <Transition name="motion-scale">
-        <div v-if="notificationsOpen" class="absolute right-0 mt-2 w-[min(24rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+        <div v-if="notificationsOpen" ref="notificationPanel" :style="notificationPanelStyle" class="fixed z-[9999] w-[min(24rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
           <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
             <p class="text-sm font-semibold">{{ t('topbar.notifications') }}</p>
             <button
@@ -228,6 +237,7 @@ async function logout() {
           </NuxtLink>
         </div>
         </Transition>
+        </Teleport>
       </div>
 
       <div class="w-36 flex-none">
@@ -264,6 +274,7 @@ async function logout() {
       <div ref="userMenuPopover" class="relative flex-none">
         <button
           type="button"
+          ref="userMenuTrigger"
           class="flex h-12 min-w-10 flex-none cursor-pointer list-none items-center justify-center gap-2 rounded-lg px-2 hover:bg-slate-100 dark:hover:bg-slate-800 md:min-w-[220px] md:justify-start"
           :aria-label="`${t('topbar.userMenu')}: ${auth.user?.name ?? ''}`"
           :aria-expanded="userMenuOpen"
@@ -278,8 +289,9 @@ async function logout() {
           </span>
           <UIcon name="i-heroicons-chevron-down-20-solid" class="hidden size-4 shrink-0 text-slate-400 md:block" aria-hidden="true" />
         </button>
+        <Teleport to="body">
         <Transition name="motion-scale">
-        <div v-if="userMenuOpen" class="absolute right-0 mt-2 w-48 origin-top-right rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+        <div v-if="userMenuOpen" ref="userMenuPanel" :style="userMenuPanelStyle" class="fixed z-[9999] w-48 origin-top-right rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
           <NuxtLink to="/me" class="block rounded-lg px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" @click="userMenuOpen = false">
             {{ t('topbar.profile') }}
           </NuxtLink>
@@ -292,6 +304,7 @@ async function logout() {
           </button>
         </div>
         </Transition>
+        </Teleport>
       </div>
     </div>
   </header>
