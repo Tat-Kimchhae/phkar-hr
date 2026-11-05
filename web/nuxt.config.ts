@@ -1,47 +1,42 @@
 export default defineNuxtConfig({
   ssr: false,
-  modules: [
-    '@nuxt/ui',
-    '@pinia/nuxt',
-    '@nuxtjs/i18n',
-    '@nuxtjs/color-mode',
-  ],
-  css: ['~/assets/css/main.css', '~/assets/css/motion.css'],
+  modules: ["@nuxt/ui", "@pinia/nuxt", "@nuxtjs/i18n", "@nuxtjs/color-mode"],
+  css: ["~/assets/css/main.css", "~/assets/css/motion.css"],
   i18n: {
-    defaultLocale: 'en',
+    defaultLocale: "en",
     lazy: true,
-    langDir: '../locales',
-    strategy: 'no_prefix',
+    langDir: "../locales",
+    strategy: "no_prefix",
     detectBrowserLanguage: {
       useCookie: true,
-      cookieKey: 'i18n_redirected',
-      redirectOn: 'root',
+      cookieKey: "i18n_redirected",
+      redirectOn: "root",
     },
     locales: [
-      { code: 'en', name: 'English', language: 'en-US', file: 'en.json' },
-      { code: 'km', name: 'ខ្មែរ', language: 'km-KH', file: 'km.json' },
+      { code: "en", name: "English", language: "en-US", file: "en.json" },
+      { code: "km", name: "ខ្មែរ", language: "km-KH", file: "km.json" },
     ],
   },
   colorMode: {
-    classSuffix: '',
-    preference: 'light',
+    classSuffix: "",
+    preference: "light",
   },
   runtimeConfig: {
     public: {
-      apiBase: '',
+      apiBase: "",
     },
   },
   app: {
-    pageTransition: { name: 'page', mode: 'out-in' },
-    layoutTransition: { name: 'layout', mode: 'out-in' },
+    pageTransition: { name: "page", mode: "out-in" },
+    layoutTransition: { name: "layout", mode: "out-in" },
     head: {
-      title: 'Phkar HR',
+      title: "Phkar HR",
       htmlAttrs: {
-        lang: 'en',
+        lang: "en",
       },
       meta: [
-        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'theme-color', content: '#f8fafc' },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { name: "theme-color", content: "#f8fafc" },
       ],
     },
   },
@@ -49,5 +44,10 @@ export default defineNuxtConfig({
     strict: true,
     typeCheck: true,
   },
-  compatibilityDate: '2025-01-01',
-})
+  vite: {
+    server: {
+      allowedHosts: ["kennel-impeach-boundless.ngrok-free.dev"],
+    },
+  },
+  compatibilityDate: "2025-01-01",
+});

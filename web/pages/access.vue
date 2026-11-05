@@ -159,7 +159,7 @@ async function saveUser(user: User) {
     if (auth.user?.id === user.id) {
       await auth.refreshSession()
     }
-    message.value = t('access.userSaved')
+    // message.value = t('access.userSaved')
     notify.success(t('toast.userUpdated'), undefined, `access-user-updated:${user.id}`)
     await load()
   } catch (cause) {
